@@ -295,7 +295,7 @@ static int msm_comm_get_mbs_per_frame(struct msm_vidc_inst *inst)
 
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 {
-	int rc = 0;
+	int rc;
 	u32 fps;
 	struct v4l2_control ctrl;
 	int mb_per_frame;
@@ -730,16 +730,16 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 	return;
 }
 
-static void put_inst_helper(struct kref *kref)
-{
-	struct msm_vidc_inst *inst = container_of(kref, struct msm_vidc_inst,
-			kref);
-
-	msm_vidc_destroy(inst);
-}
-
 void put_inst(struct msm_vidc_inst *inst)
 {
+	void put_inst_helper(struct kref *kref)
+	{
+		struct msm_vidc_inst *inst = container_of(kref,
+				struct msm_vidc_inst, kref);
+
+		msm_vidc_destroy(inst);
+	}
+
 	if (!inst)
 		return;
 
@@ -1078,11 +1078,11 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	struct v4l2_event seq_changed_event = {0};
 	int rc = 0;
 	struct hfi_device *hdev;
-	u32 *ptr = NULL;
+	u32 *ptr;
 
 	if (!event_notify) {
 		dprintk(VIDC_WARN, "Got an empty event from hfi\n");
-		goto err_bad_event;
+		return;
 	}
 
 	inst = get_inst(get_vidc_core(event_notify->device_id),
@@ -1521,7 +1521,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	struct v4l2_event flush_event = {0};
 	u32 *ptr = NULL;
 	enum hal_flush flush_type;
-	int rc = 0;
+	int rc;
 
 	if (!response) {
 		dprintk(VIDC_ERR, "Failed to get valid response for flush\n");
@@ -3691,7 +3691,7 @@ static int request_seq_header(struct msm_vidc_inst *inst,
  */
 int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 {
-	int rc = 0, capture_count, output_count;
+	int rc = -EINVAL, capture_count, output_count;
 	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
 	struct {
@@ -3722,6 +3722,7 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 		temp = kzalloc(sizeof(*temp), GFP_KERNEL);
 		if (!temp) {
 			dprintk(VIDC_ERR, "Out of memory\n");
+			rc = -ENOMEM;
 			goto err_no_mem;
 		}
 
@@ -3776,6 +3777,7 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 
 		kfree(ftbs.data);
 		ftbs.data = NULL;
+		rc = -ENOMEM;
 		goto err_no_mem;
 	}
 
