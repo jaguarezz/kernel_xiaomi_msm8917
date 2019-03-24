@@ -2,6 +2,7 @@
  *  linux/init/main.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  GK 2/5/95  -  Changed to support mounting root fs via NFS
  *  Added initrd & change_root: Werner Almesberger & Hans Lermen, Feb '96
@@ -499,12 +500,15 @@ static void __init mm_init(void)
 	pgtable_init();
 	vmalloc_init();
 }
+int fpsensor=1;
+int tpsensor=1;
 
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
 	char *after_dashes;
-
+	char *p=NULL;
+	char *tp=NULL;
 	/*
 	 * Need to run as early as possible, to initialize the
 	 * lockdep hash:
@@ -541,8 +545,22 @@ asmlinkage __visible void __init start_kernel(void)
 	page_alloc_init();
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
-	/* parameters may set static keys */
-	jump_label_init();
+	p = NULL;
+	p= strstr(boot_command_line,"androidboot.fpsensor=fpc");
+	if(p) {
+		fpsensor = 1;
+	} else{
+		fpsensor = 2;
+	}
+
+	tp = NULL;
+	tp = strstr(boot_command_line,"shenchao");
+	if(tp) {
+		tpsensor = 1;
+	} else{
+		tpsensor = 2;
+	}
+
 	parse_early_param();
 	after_dashes = parse_args("Booting kernel",
 				  static_command_line, __start___param,
@@ -551,6 +569,8 @@ asmlinkage __visible void __init start_kernel(void)
 	if (!IS_ERR_OR_NULL(after_dashes))
 		parse_args("Setting init args", after_dashes, NULL, 0, -1, -1,
 			   NULL, set_init_arg);
+
+	jump_label_init();
 
 	/*
 	 * These use large bootmem allocations and must precede
@@ -685,8 +705,6 @@ asmlinkage __visible void __init start_kernel(void)
 
 	/* Do the rest non-__init'ed, we're now alive */
 	rest_init();
-
-	prevent_tail_call_optimization();
 }
 
 /* Call all constructor functions linked into the kernel. */
